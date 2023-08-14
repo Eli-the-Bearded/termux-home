@@ -1,0 +1,27 @@
+:
+args=yes
+pre=
+post=
+opt=
+while test $args = yes ; do
+  cur=$1
+  case $cur in
+    -*) case $cur in
+          -a) pre='^'
+              post='$'
+              ;;
+          -i) opt='-i'
+              ;;
+           *) echo "Option '$cur' not recognized."
+              exit 1
+              ;;
+        esac
+        ;;
+     *) args=no
+        pat=$cur
+        ;;
+  esac
+  shift
+done
+grep $opt $pre$pat$post $HOME/words
+exit $?

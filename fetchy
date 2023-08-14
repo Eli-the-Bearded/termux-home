@@ -1,0 +1,23 @@
+:
+
+sal=~~USER_HOME_LAPTOP~~:/l/
+dest=$HOME/storage/movies
+
+what="$1";
+case "x$what" in
+  x) echo "fetchy: usage:"
+     echo "   fetchy GLOB"
+     echo "Gets files matching GLOB from $sal to $dest"
+     exit 2
+  ;;
+  xhttp*)
+     echo "Running fastyt instead"
+     fastyt "$@"
+     exit $?
+  ;;
+esac
+
+cd $dest || exit 1
+scp "$sal$what" .
+
+

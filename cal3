@@ -1,0 +1,25 @@
+:
+month=`date +%m`
+year=`date +%Y`
+
+lm=`expr $month - 1`
+
+if test $lm = 0 ; then
+  lm=12
+  ly=`expr $year - 1`
+else
+  ly=$year
+fi
+
+nm=`expr $month + 1`
+
+if test $nm = 13 ; then
+  nm=1
+  ny=`expr $year + 1`
+else
+  ny=$year
+fi
+
+cal $lm $ly
+cal $month $year
+cal $nm $ny

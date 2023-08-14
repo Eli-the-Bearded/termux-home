@@ -1,0 +1,11 @@
+:
+sal=~~USER_HOME_LAPTOP~~
+device=~~CURRENT_PHONE~~
+
+cd ~/storage/dcim || exit
+time \
+rsync -a Pixel\ Studio/ \
+	Camera/ 	\
+	OpenCamera/	\
+	$sal:/torrent/$device/
+

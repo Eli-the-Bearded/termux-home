@@ -1,0 +1,48 @@
+:
+# replacement for fastyt='youtube-dl -f 43/18/http-540p/http-360p' alias
+# by default save to movies
+#	use -h or --here for CWD
+#	use -v or --/var/tmp for /var/tmp
+#	use --/full/path for /full/path
+# use --asis or --full to ignore (-f) format restriction
+# only attempt format restriction on youtube/vimeo
+# -U will update seperately from attempting to download
+# -extra args are passed to youtube-dl
+
+docd=$HOME/storage/movies
+formats='-f 43/18/http-540p/http-360p'
+extra=
+dl=
+tool=yt-dlp
+
+for arg; do
+  case "X$arg" in
+  	X-U|X--update) $tool -U ;;
+  	X-h|X--here) docd=n ;;
+  	#-v) docd=/var/tmp ;;
+  	X--/*) docd=${arg#--} ;;
+  	X--asis|X--full) formats="" ;;
+	X--json) extra="$extra --id --write-info-json" ;;
+	X-*) extra="$extra $arg" ;;
+	X*youtube.*|X*youtu.be*|X*vimeo*)
+	   if [ $docd != n ] ; then
+	     cd $docd
+	     docd=n
+	   fi
+	   $tool $formats $extra "$arg"
+	   dl=y
+	   ;;
+        X?*) 
+	   if [ $docd != n ] ; then
+	     cd $docd
+	     docd=n
+	   fi
+	   $tool $extra "$arg"
+	   dl=y
+	   ;;
+  esac
+done
+
+if [ "x$dl" = x -a "x$extra" != x ] ; then
+  $tool $extra
+fi

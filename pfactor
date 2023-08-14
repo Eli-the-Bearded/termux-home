@@ -1,0 +1,33 @@
+:
+# pretty factor
+#	usage: pfactor [ -n NUM ] START
+# Prints (by default) ten factorizations starting from START
+# with pretty printed results.
+
+num=10
+start=
+
+until [ "X$1" = X ]; do
+  this="$1"
+  shift
+
+  case "X$this" in
+    X-n|X--nu*) num="$1"; shift ;;
+    X-*) echo "Usage: pfactor [ -n NUM ] START"
+         exit 2 ;;
+    X[0-9]*) start=$this ;;
+  esac
+done
+
+case ":$num:$start:" in
+  *::*) echo "Missing parameter: start='$start'; num='$num'"
+        exit 2 ;;
+  :[^1-9]*) echo "Needs to be a number: num='$num'"
+        exit 2 ;;
+esac
+
+end=$(( $start + $num ))
+
+for n in $(nums $start-$end) ; do
+  factor $n | sed -e 's/: /=/' -e 's/ / × /g' -e 's/=/ = /'
+done

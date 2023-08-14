@@ -1,0 +1,25 @@
+#!
+
+left=$1
+right=$2
+out=${3-out.jpg}
+
+maxsiz=1000
+
+imgprep() {
+	in="$1"
+	thumbout=$(mkthnail -m $maxsiz "$in" 2>&1)
+	case "x$thumbout" in
+	  x*done) echo ${thumbout%?done} ;;
+	  x*) echo "Resize error: $in -- $thumbout" >&2
+		  echo press enter >&2
+		  read wait
+	      exit 1 ;;
+	esac
+}
+
+lp=$(imgprep "$left") || exit
+rp=$(imgprep "$right") || exit
+pnmcat -lr "$lp" "$rp" > "$out.ppm"
+cjpeg "$out.ppm" > "$out"
+rm "$lp" "$rp" "$out.ppm"

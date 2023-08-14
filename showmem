@@ -1,0 +1,3 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# works only on rooted devices
+sudo ps -u root --deselect --sort vsize -o pid,uid,vsize,cmd

@@ -1,0 +1,7 @@
+:
+
+cd $HOME/tvoc || exit
+
+files=$(ls -rt | tail)
+scp $files ~~USER_HOME_LAPTOP~~:tvoc/
+

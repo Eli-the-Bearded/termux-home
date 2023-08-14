@@ -1,0 +1,49 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Standard tool run by Termux when another app sends
+# (via three dot < tool) a file to Termux. This saves
+# some details about the file and if it is an image,
+# runs the bgupload tool (which might not actually
+# upload anything anymore)
+
+PATH=$HOME/bin:$PATH
+
+storage=/data/data/com.termux/files/home/storage
+dcim=$storage/shared/DCIM
+pict=$storage/shared/Pictures
+name=$HOME/last.filename
+ofile=$HOME/last.rawfile
+
+echo "1: $1"
+echo "2: $2"
+echo "$0 '$1' '$2'" > $HOME/last.sh
+
+# just newline
+IFS='
+'
+
+if [ -f "$1" ]; then
+  ifile="$1"
+else
+  for pre in $(find $pict $dcim -type d ! -name .thumbnails ); do
+    # last found wins in case of tie
+    if [ -f "$pre/$1" ]; then
+      ifile="$pre/$1"
+    fi
+  done
+fi
+
+if [ ! -f "$ifile" ]; then
+  echo no file found
+  exit 2
+fi
+echo "$ifile" > $name
+
+echo Content stored in $ofile
+cat "$ifile" > $ofile
+
+case "$ifile" in
+  *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.gif|*.GIF|*.tiff|*.TIFF)
+: e bgupload
+	  bgupload "$ifile" 
+	  ;;
+esac

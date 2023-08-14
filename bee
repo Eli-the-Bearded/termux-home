@@ -1,0 +1,60 @@
+:
+# nov 8 2021 based on nyt game spelling bee
+letters=$1
+need=$2
+min=$3
+pattern="$4"
+
+if [ x = "x$letters" ] ; then
+  echo usage
+  echo
+  echo "bee LETTERS [ NEED [ MIN [ PATTERN ] ]"
+  echo Find words only using LETTERS than inckude NEED
+  echo of MIN length
+  echo
+  echo NEED defaults to first letter
+  echo MIN defaults to 4
+  echo
+  echo PATTERN can be a grep string or pana for panagrams
+
+  exit
+fi
+
+
+matchpattern() {
+  marg1="$1"
+  marg2="$2"
+  perl -we '$p = shift;
+	    $a = shift;
+	    if ($p eq "") {
+	      while(<>) { print }
+	      exit;
+            }
+	    if ($p !~ /^pana/i) {
+	      while(<>) { print if /$p/i }
+	      exit;
+            }
+	    @l = grep(/\w/, split(/(.)/, $a));
+	    line: while(<>) {
+	      for $m (@l)  {
+	        next line unless /$m/i;
+	      }
+	      print;
+            }
+	  ' "$marg1" "$marg2"
+}
+
+if [ x = "x$need" ] ; then
+  need=$(echo $letters | cut -c 1)
+fi
+
+if [ x = "x$min" ] ; then
+  min=4,
+else
+  case $min in *,*) : ;; *) min=$min, ;; esac
+fi
+
+lk "^[$letters]*$" |
+  grep $need |
+  egrep "^.{$min}$" 2>/dev/null |
+  matchpattern "$pattern" "$letters"

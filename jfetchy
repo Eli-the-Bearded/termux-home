@@ -1,0 +1,30 @@
+:
+
+sal=~~USER_HOME_LAPTOP~~:/l/
+tmpdest=$HOME/.fetch-tmp/
+dest=$HOME/storage/pictures/email/
+
+what="$1";
+case "x$what" in
+  x-*) echo "jfetchy: usage:"
+     echo "   jfetchy GLOB"
+     echo "Gets files matching GLOB from $sal to $dest"
+     echo "by way of $tmpdest, to avoid overwrites"
+     echo "GLOB defaults to '*.[jJ][pP][gG]'"
+     exit 2
+  ;;
+  x) 
+     what='*.[jJ][pP][gG]'
+  ;;
+  xhttp*)
+     echo "Running fastyt instead"
+     fastyt "$@"
+     exit $?
+  ;;
+esac
+
+mkdir -p $tmpdest $dest
+cd $tmpdest || exit 1
+scp "$sal$what" .
+mv -i * $dest
+

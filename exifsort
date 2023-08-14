@@ -1,0 +1,22 @@
+:
+# one off script kept as a future template
+cd /data/data/com.termux/files/home/storage/dcim/Camera
+
+imglist=$( find . ... )
+
+# tags show up in "Subject"
+for img in $imglist ; do
+  cmode=$( exiftool -CaptureMode $img )
+  case "$cmode" in
+    *Panorama*)
+       subj=$( exiftool -Subject $img | cut -f 2 -d : )
+       case "$subj" in
+         *panorama*)
+	    : yes ;;
+         *) echo "$img: $subj" ;;
+       esac ;;
+  esac;
+done | tee info.txt
+
+mkdir -p ../reexamine/
+mv $( cut -f 1 -d : info.txt ) ../reexamine/

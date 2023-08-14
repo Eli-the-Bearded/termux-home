@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+# 15 August 2019
+sub usage() {
+print <<'USAGE_MESS';
+Usage:
+    MKSUBS [ -f | -r ] -c config < input > output
+
+Run a bunch of s/PATTERN/SUBSTITUTE/ matches. While REs are supported,
+it is expected that plain strings will be used. The config file is two
+columns of tab separated values. Lines without a tab will result in
+warnings unless empty or starting with '#' -- but note that # does not
+comment out a line with a tab.
+
+In the default, forward mode, instances of the first column in the
+config are replaced with the values in the second column. In the reverse
+mode the second column it replaced with the first. In either column "\t"
+can be used to represent a literal tab.
+
+The forward mode can be used to install a file with substitutions, in
+reverse a template can be made from an existing file.
+USAGE_MESS
+}
+use warnings;
+use strict;
+use vars qw( $infile $direction $this $that %thisthat );
+
+$direction = 'f';
+
+while( @ARGV ) {
+  $_ = shift;
+
+  if (/^-f$|^--forw/) { $direction = 'f';   next; }
+  if (/^-r$|^--revs/) { $direction = 'r';   next; }
+  if (/^-c$|^--conf/) { $infile    = shift; next; }
+  if (/^--help/)      { &usage; exit; }
+
+  die "$0: extra/unknown param: $_\n";
+}
+
+if(!defined($infile))         { die "$0: need a config\n"; }
+if(!open(CONF, '<', $infile)) { die "$0: config $infile: $!\n"; }
+
+while (<CONF>) {
+  if (/(.+)\t(.+)/) {
+    if ('f' eq $direction) {
+      $thisthat{$1} = $2;
+    } else {
+      $thisthat{$2} = $1;
+    }
+    next;
+  }
+  if (/^\s*$/) { next; }
+  if (/^\s*#/) { next; }
+  warn "$0: line $. of $infile lacks a tab\n";
+}
+close CONF;
+
+while (<STDIN>) {
+  while ( ($this, $that) = each %thisthat ) {
+     s/$this/$that/g;
+  }
+  print;
+}

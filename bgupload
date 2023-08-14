@@ -1,0 +1,241 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# image sharing tool
+#   can upload to a bastion which will in turn upload else where
+#   can prepare an image for a web upload (resize and strip exif)
+#   can prepare an image for a SMS (smaller resize and strip exif)
+# basic rename / resize / rotate functionality
+
+
+in="$1"
+
+ms=1000
+rot=none
+jq=80
+fn=image
+pi=yes
+sd=news
+tdir=$HOME/storage/pictures/Termux
+uphist=$HOME/text-all.upl
+bgout=$HOME/text-last.upload
+
+yellow=$(printf "\e[33m")
+blue=$(printf "\e[34m")
+bold=$(printf "\e[1m")
+normal=$(printf "\e[0m")
+
+
+printf '%s - ' "$in" >> $uphist
+
+#file "$in"; echo wide x tall
+# JPEG image data, Exif standard: [TIFF image data, little-endian, direntries=14, manufacturer=Unihertz, height=3504, orientation=[*0*], datetime=2023:01:18 10:13:03, GPS-Data, yresolution=234, xresolution=242, model=Jelly2, software=MediaTek Camera Application, description=, resolutionunit=2, width=4672], baseline, precision 8, 4672x3504, components 3
+
+printf "$blue"; file "$in" | sed \
+ -e "s/: /$normal\n/" \
+ -e 's/JPEG image.*direntries=[0-9]*,/JPEG /' \
+ -e 's/[xy]resolution=[0-9]*, //g' \
+ -e "s/\(width\)=\([0-9]*\)/$yellow\1=$bold\2$normal/" \
+ -e "s/\(height\)=\([0-9]*\)/$yellow\1=$bold\2$normal/" \
+ -e 's/resolutionunit=[0-9]*, //' \
+ -e 's/description=[0-9]*, //' \
+ -e 's/model=[^,]*, //' \
+ -e 's/software=[^,]*, //' \
+ -e 's/\], baseline,.*$//'
+
+
+echo
+echo "Defaults go to imgur, size $ms"
+echo "Use"
+echo "  ${yellow}number${normal} for new size"
+echo "  ${yellow}T${normal} for regular Termux dir"
+echo "  ${yellow}t${normal} for regular Termux dir all defaults"
+echo "  ${yellow}S${normal} for SMS optimized Termux dir"
+echo "  ${yellow}s${normal} for SMS optimized Termux dir all defaults"
+echo "  ${yellow}p${normal} for regular Termux dir png & defaults"
+echo "  ${yellow}filename${normal} for blog dest (& Termux dir)"
+echo "            no suffix, should be 2 characters or more"
+
+read -p 'Accept defaults [y]: ' ask
+
+# pre-check ask for new defaults
+case "x$ask" in
+xn) : ;;
+xy) : ;;
+xt|xT|xp) # regular termux
+	fns="${in##*/}" # strip path
+	fn="${fns%.*}"  # strip suffix
+        ms=1500
+	sd=termux
+	pi=no
+	if [ $ask = p ] ; then
+	  ask=y # yes to (new) defaults
+	  jq=png
+	else
+	  if [ $ask = t ] ; then
+	    ask=y # yes to (new) defaults
+	  else
+	    ask=n
+	  fi
+	fi
+;;
+xs|xS) # sms termux
+	fns="${in##*/}" # strip path
+	fn="${fns%.*}"  # strip suffix
+	sd=termux
+	pi=no
+        jq=65
+	if [ $ask = s ] ; then
+	  ask=y # yes to (new) defaults
+	else
+	  ask=n
+	fi
+;;
+x) : ;;
+x[1-9]*[0-9]) # change default size
+        ms="$ask"
+	ask=n
+;;
+*) # change output filename
+	fn="$ask"
+	sd=blog
+	pi=no
+	ask=n
+;;
+esac
+
+# for real, use the defaults or ask questions
+case "x$ask" in
+xn*)
+  read -p "Max size [$ms]: " ask; maxsiz=${ask:-$ms}
+  read -p "Post to imgur [$pi]: " ask; posti=${ask:-$pi}
+
+  if [ "$posti" != yes ] ; then
+    read -p "File w/o ext [$fn]: " ask; fname=${ask:-$fn}
+    read -p "Save dir (news|blog|password|termux|none) [$sd]:" ask; sdir=${ask:-$sd}
+  else
+    fname="$fn"
+    sdir="$sd"
+  fi
+
+  read -p "Flip (lr|tb|xy|cw|ccw|r180) [$rot]: " ask; rotate=${ask:-$rot}
+  read -p "JPEG quality [$jq] or 'png': " ask; jqual=${ask:-$jq}
+  ;;
+*)
+	maxsiz=$ms
+	rotate=$rot
+	jqual=$jq
+	fname="$fn"
+        sdir=$sd
+	posti=$pi
+  ;;
+esac
+
+thumbout=$(mkthnail -m $maxsiz "$in" 2>&1)
+case "x$thumbout" in
+  x*done) tmp_ppm=${thumbout%?done} ;;
+  x*) echo "Resize error: $thumbout"
+      echo " resize error" >> $uphist
+      exit 1 ;;
+esac
+
+case "x$rotate" in
+	xnone) : okay ;;
+	x*) pnmflip -$rotate "$tmp_ppm" > "$tmp_ppm"2
+	    mv "$tmp_ppm"2 "$tmp_ppm"
+	    ;;
+esac
+
+# png output shoe-horned in
+case "x$jqual" in
+ xp*) suf=png
+      jpgout=$(mkpng           "$tmp_ppm" 2>&1)
+      ;;
+ x*)  suf=jpg
+      jpgout=$(mkjpg -q $jqual "$tmp_ppm" 2>&1)
+      ;;
+esac
+
+# note that only the temp file is deleted, full size and
+# recompressed are both saved.
+rm -f "$tmp_ppm"
+
+case "x$jpgout" in
+  x*done) tmp_jpg="${jpgout%?done}" ;;
+  x*) echo "Encode error: $jpgout"
+      echo "encode error" >> $uphist
+      exit 1 ;;
+esac
+
+termuxstore() {
+      mkdir -p "$tdir"
+      cp "$tmp_jpg" "$tdir/$fname.$suf"
+      termux-media-scan "$tdir/$fname.$suf"
+      (cd "$tdir" && ls -lh "$fname.$suf")
+      echo "$fname.$suf" | pbset
+      echo "$tdir/$fname.$suf" >> $uphist
+}
+
+case "x$fname" in
+  ximage) : disposable image ;;
+  x*) 
+     case "x$sdir" in
+      xN|xnone) echo "Finished."
+                echo " local $fname.$suf" >> $uphist
+                exit ;;
+      xt|xtermux)
+	echo "Just copying to termux dir"
+        termuxstore
+        sleep 5
+        exit
+        ;;
+      x*)
+	echo "Also copying to termux dir"
+        termuxstore
+        ;;
+     esac
+  ;;
+esac
+
+
+# https://~~CGI_BASTION_SITE~~/bgtools/imgprepare.cgi
+# 	dirname		name of destination directory relative to hardcoded root
+#	savedir		name of destination from table (overrides dirname)
+# 	filename	name of local file; whitespace will be squashed
+#	ext		extension of prepared image, .png or .jpg expected
+#	rotate		rotation flag: none, cw, ccw,... (pnmflip options)
+#	maxdim		scale to, if longest side is larger than this
+#	imgur 		if set, post to imgur
+#	flickr 		if set, post to flickr
+#	backup		if set, name of extension to use for backup
+#	mode		if set, mode for files
+# 	file		body of file
+
+filename="$fname"
+ext=.$suf
+rotate=		# prerotated above
+maxdim=5000	# preresized above
+file="@$tmp_jpg"
+
+case "x$posti" in
+	xy*) imgur=yes ;;
+	xn*) imgur= ;;
+esac
+
+curl \
+~~CGI_BASTION_AUTH~~ \
+-F savedir="$sdir" \
+-F quiet=yes \
+-F filename="$filename" \
+-F ext="$ext" \
+-F rotate="$rotate" \
+-F maxdim="$maxdim" \
+-F imgur="$imgur" \
+-F file="$file" \
+  https://~~CGI_BASTION_SITE~~/termux-dest/imgprepare.cgi | tee $bgout
+
+grep https $bgout |sed -e 's/ //g' |tail -1 |pbset
+grep https $bgout |tail -1 >> $uphist
+
+mv -f "$tmp_jpg" $HOME/last.$suf
+echo Local copy saved to $HOME/last.$suf
+
+sleep 5

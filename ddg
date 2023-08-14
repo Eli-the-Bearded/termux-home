@@ -1,0 +1,26 @@
+#!/data/data/com.termux/files/usr/bin/perl
+#!/usr/local/bin/perl-latest
+# Mon Dec 18 19:56:20 EST 2017
+# quickly search duck duck go from command line
+
+use strict;
+use warnings;
+
+my $browser = 'lynx';
+my @browser_args = qw(
+        -useragent=Lynx/2.8.8rel.2
+        -image_links
+        -noreferer
+        -accept_all_cookies
+        -cookie_save_file=/dev/null
+);
+my $query = join('+',@ARGV);
+my $base = 'https://duckduckgo.com/lite/';
+
+push(@browser_args, $base);
+
+if(defined($query) and $query ne '') {
+  $browser_args[-1] .= "?q=$query";
+}
+
+exec($browser, @browser_args);

@@ -1,0 +1,137 @@
+#!/data/data/com.termux/files/usr/bin/sh
+#!/bin/sh
+# Find a preview for a Pixel Studio Project by reading the
+# Gallery.cache file and grabbing it from there.
+# 28 Aug 2021
+
+show_help() {
+  echo "psp-preview [ options ] file_regexp"
+  echo "psp-preview [ options ] [-a | --all]"
+  echo ""
+  echo "Extracts PNG previews from the Pixel Studo cache file."
+  echo "Either one file (first filename matching regexp) or"
+  echo "multiple files."
+  echo "In single file mode the image can be emitted as PNG."
+  echo ""
+  echo "Options:"
+  echo "    -c FILE | --cache FILE   use named cache instead of default"
+  echo "    -a      | --all          show all files (one json has per line)"
+  echo "    -l      | --ls           show all file names (one name per line)"
+  echo "    -m      | --multi        output multiple matching files"
+  echo "    -j      | --json         json output"
+  echo "    -p      | --png          emit raw PNG (single file mode only)"
+  echo "    -r      | --recovery     also consider non-PSP files in cache"
+  exit 0
+}
+
+err() {
+  echo "$@" >&2
+  exit 2
+}
+
+cache="$HOME/storage/shared/DCIM/Pixel Studio/Gallery.cache"
+all=no
+json=yes
+pattern=
+
+# input is JSON like this:
+# [{"Path":"/full/path/name","LastWriteTime":seconds,"Height":64,"Width":64,"Texture":"base64png"},
+#  {"Path":"/full/path/file","LastWriteTime":seconds,"Height":32,"Width":32,"Texture":"base64png"},
+# ...]
+# we edit it to Path (with leading directories removed and texture, like this:
+# {"name":"base64png"}
+# {"file":"base64png"}
+# with one entry per line
+jq_script='.[] | {(.Path|sub(".*/";"")): .Texture }'
+
+# cache includes GIF and PNG files, but no need to dig them out of cache
+# unless in "recovery" mode
+psp_filter='[.]psp":"iVBOR'
+
+argsparse() {
+  while [ "X$1" != X ] ; do
+    arg="$1" ; shift
+
+    case "$arg" in
+      -h|--help)  show_help                ;;
+
+      -c|--cache) cache="$1" ; shift       ;;
+      -j|--json)  json=yes                 ;;
+      -p|--png)   json=no                  ;;
+      -a|--all)   all=yes                  ;;
+      -m|--multi) all=multi                ;;
+      -l|--ls)    all=yes; json=ls         ;;
+      -r|--recovery) psp_filter=':"iVBOR'  ;;
+
+      --)         pattern="$1" ; shift     ;;
+      -*) err "Unknown option; try --help" ;;
+      ?*)         pattern="$arg"           ;;
+
+    esac
+  done
+
+  if [ "$all" != no ] ; then
+    if [ "$json" = no ] ; then
+      err "Can only emit a single file with png output."
+    fi
+  fi
+  if [ "$all" != yes ] ; then
+    if [ -z "$pattern" ] ; then
+      err "Need a file pattern to match"
+    fi
+  fi
+
+  if [ ! -f "$cache" ] ; then
+    err "Cache file not found: $cache"
+  fi
+}
+
+basicfind() {
+  jq -c "$jq_script" < "$cache" | grep "$psp_filter"
+}
+
+lsfind() {
+  basicfind | jq -r 'keys | .[0]' | sort
+}
+
+multifind() {
+  basicfind | grep '{"[^"]*'"$pattern"
+}
+
+singlefind() {
+  multifind | head -1
+}
+
+rawpng() {
+  # jq has a base64 decoder, but it's badly implemented.
+  # https://github.com/stedolan/jq/issues/47#issuecomment-504314157
+  singlefind | jq -r '.[]' | base64 -d
+}
+
+main() {
+  argsparse "$@"
+  #echo "Debug: all <$all>; json <$json>; pattern <$pattern>" >&2
+  #echo "Debug: cache <$cache>" >&2
+  #echo "Debug: psp_filter <$psp_filter>" >&2
+
+  case $all in
+    yes)   if [ $json = yes ] ; then 
+             basicfind
+	   else
+	     lsfind
+	   fi
+	   ;;
+
+    multi) multifind ;;
+
+    no)    if [ $json = yes ] ; then
+	     singlefind
+	   else
+	     rawpng
+	   fi
+	   ;;
+  esac
+}
+
+main "$@"
+exit

@@ -1,0 +1,53 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Standard tool run by Termux when another app sends
+# (three dot < tool) a URL to Termux. This will save
+# to either a URL shortener or a bookmark service.
+
+PATH=$HOME/bin:$PATH
+
+out=$HOME/last.url
+all=$HOME/text-all.url
+sh=$HOME/last.sh
+echo "$1"  > $out
+defl="$2"
+
+echo "$0 '$1' '$2'" > $sh
+cat $out
+
+printf '\n\n\n\n\nLabel this for ~~SHORT_LINK_SITE~~? [%s] ' "$defl"
+read label
+if [ -z "$label" ]; then 
+  label="$defl"
+fi
+
+if [ -z "$label" ]; then 
+	# -F multipart form
+    echo "$1" >> $all
+    curl \
+    ~~CGI_BASTION_AUTH~~ \
+    -F u="$1" \
+      https://~~CGI_BASTION_SITE~~/termux-dest/urlsave.cgi
+else
+    echo "$0 '$1' '$label'" > $sh
+    u=$(echo "$1" | sed 's/%/%25/g;s/&/%26/g')
+	# -d regular form
+    curl \
+    ~~SHORT_LINK_AUTH~~ \
+    -d label="$label" -d url="$u" \
+      https://config.~~SHORT_LINK_SITE~~/new.topping \
+    > $out.json
+
+    if grep -q 'status.*okay' $out.json ; then
+	n="https://$label.~~SHORT_LINK_SITE~~/"
+	echo $n |pbset
+	echo $n
+        echo "$n	$1" >> $all
+        rm $out.json
+    else
+        echo "~~SHORT_LINK_SITE~~ save failed, see $out.json"
+        echo "$n	(failed label: $label)" >> $all
+    fi
+fi
+
+echo Also stored in $out
+sleep 5

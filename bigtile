@@ -1,0 +1,67 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# 23 August 2021
+# bigtile wrapper for pnmtile, created for use with Pixel Studio
+# png images
+
+in=
+wide=
+tall=
+x=
+y=
+expand=1
+fill=no
+
+while [ "x$1" != x ] ; do
+   this="$1" ; shift
+   case "$this" in
+     -i|--in)     in="$1"     ; shift ;;
+     -w|--wide)   wide="$1"   ; shift ;;
+     -t|--tall)   tall="$1"   ; shift ;;
+     -e|--expand) expand="$1" ; shift ;;
+     -f|--fill)   fill=yes            ;;
+     -h|--help)
+       echo "bigtile [ options ] > output.png"
+       echo "Read --in PNG; tile --wide W --tall T then --expand N"
+       echo "With --fill, wide and tall are pixel sizes, otherwise"
+       echo "they are repetition counts."
+       exit 
+       ;;
+  esac
+done
+
+if [ "$in"   = "" ] ; then echo "Need --in input file"; exit 1; fi
+if [ "$wide" = "" ] ; then echo "Need --wide size"    ; exit 1; fi
+if [ "$tall" = "" ] ; then echo "Need --tall size"    ; exit 1; fi
+
+# pnmtile prefers fill mode
+if [ "$fill" = yes ] ; then
+  tilewide=$wide
+  tiletall=$tall
+
+else
+  # topo-tile-16x12.png:             PNG image data, 1024 x 768, 4-bit colormap, non-interlaced
+  xxy=$(file "$in" | cut -f 2 -d ,)
+
+  set $xxy
+  x=$1; shift	# in png wide
+	shift	# "x"
+  y=$1; shift	# in png tall
+
+  tilewide=$(( $x * $wide ))
+  tiletall=$(( $y * $tall ))
+fi
+
+# "pnmenlarge: N must be greater than 1"
+if [ "$expand" = 1 ] ; then
+  pnmenlarge=
+  expand=cat
+else
+  pnmenlarge=pnmenlarge
+fi
+
+pngtopnm "$in" | 
+    pnmtile "$tilewide" "$tiletall" |
+    $pnmenlarge "$expand" | 
+    pnmtopng 
+
+exit $?

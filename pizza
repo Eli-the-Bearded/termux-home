@@ -1,0 +1,39 @@
+#!/data/data/com.termux/files/usr/bin/sh
+#!/bin/ksh
+usage () {
+  echo "pizza usage:"
+  echo "    pizza DNSLABEL URL"
+  echo ""
+  echo "Attempts to make a new shorturl for URL at https://DNSLABEL.~~SHORT_LINK_SITE~~/"
+  exit
+}
+# 19 August 2018
+
+label="$1"
+urlraw="$2"
+edit="$3"
+
+case "$urlraw" in
+	http*|ftp*) : okay ;; # url=$(echo "$urlraw" | sed 's/%/%25/g;s/&/%26/g') ;;
+	*) usage ;;
+esac
+
+case "$edit" in
+	edit*|y*) edit='yes' ; message='Edited'  ;;
+	       *) edit=''    ; message='Created' ;;
+esac
+
+json=$(curl --silent --data-raw "label=$label" \
+       --data-raw "changeme=$edit" \
+       --data-urlencode "url=$urlraw" \
+       ~~SHORT_LINK_AUTH~~ \
+	 https://config.~~SHORT_LINK_SITE~~/new.topping)
+
+case "$json" in
+   *\"status\":\ \"okay\"*|*\"status\":\"okay\"*) echo "$message"
+						  echo "https://$label.~~SHORT_LINK_SITE~~/"
+						  exit ;;
+   *) echo "Problem"
+      echo "$json"
+      exit 1 ;;
+esac

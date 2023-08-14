@@ -1,0 +1,37 @@
+:
+
+user=
+tmpdest=$HOME/.fetch-tmp/
+dest=$HOME/storage/pictures/email/
+
+what="$1";
+case "x$what" in
+  x|x-*) echo "efetchy: usage:"
+     echo "   efetchy URL [URL ...]"
+     echo "Downloads email attachments to $dest"
+     echo "by way of $tmpdest, to avoid overwrites"
+     exit 2
+  ;;
+  # protect against accidentally using this with, eg, a fastyt url
+  xhttps*qaz*) 
+	  : okay 
+  ;;
+  xhttp*)
+     echo Unexpected url
+     exit $?
+  ;;
+esac
+
+read -p 'user:password >> ' user
+mkdir -p $tmpdest
+cd $tmpdest || exit 1
+while [ "$what" != "" ] ; do
+  curl \
+    --digest \
+    --user "$user" \
+    -O "$what"
+  shift
+  what="$1"
+done
+mv -i * $dest
+

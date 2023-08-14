@@ -1,0 +1,68 @@
+#!
+# only works on Cat S61
+
+# ISO8601 date format
+fulldate=$(date +'%Y-%m-%dT%H:%M:%S%z')
+fulldatejson=\""$fulldate"\"
+dir=$HOME/tvoc
+mkdir -p $dir
+# remove time of day part of date
+file=$dir/${fulldate%T*}
+
+# rough indicator of at home or not
+wifi=$(termux-wifi-connectioninfo | jq '.supplicant_state')
+
+termux-sensor -n 1 -s temperature,humidity,"SGPC3 TVOC -Wakeup Secondary" | sed -e 's/\(\.[0-9][0-9][0-9]\)[0-9]*/\1/g' |
+jq "[$fulldatejson,"'."SHTW2 Temperature".values[0],."SHTW2 Humidity".values[0],."SGPC3 TVOC -Wakeup Secondary".values[0]'",$wifi]" >> $file
+exit
+
+Sample output.
+
+:r! termux-wifi-connectioninfo 
+{
+  "bssid": "02:00:00:00:00:00",
+  "frequency_mhz": 5765,
+  "ip": "192.168.1.71",
+  "link_speed_mbps": 433,
+  "mac_address": "02:00:00:00:00:00",
+  "network_id": 0,
+  "rssi": -48,
+  "ssid": "<unknown ssid>",
+  "ssid_hidden": true,
+  "supplicant_state": "COMPLETED"
+}
+
+:r! termux-sensor -n 1 -s temperature,humidity,"SGPC3 TVOC -Wakeup Secondary"
+{
+  "SHTW2 Temperature": {
+    "values": [
+      34.83744812011719
+    ]
+  },
+  "SHTW2 Humidity": {
+    "values": [
+      34.20512771606445
+    ]
+  },
+  "SGPC3 TVOC -Wakeup Secondary": {
+    "values": [
+      48.21057891845703,
+      31.767578125,
+      0,
+      4.203895392974451E-45,
+      36349,
+      0.37254902720451355,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+}
+
